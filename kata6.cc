@@ -1,8 +1,16 @@
 // Code Kata 6: Anagrams
 //
-// $Id: kata6.cc,v 1.5 2004/02/09 07:29:42 mathie Exp $
+// $Id: kata6.cc,v 1.6 2004/02/09 09:53:32 mathie Exp $
 //
 // $Log: kata6.cc,v $
+// Revision 1.6  2004/02/09 09:53:32  mathie
+// * Change anagrams::iterator to store a pointer (rather than a reference)
+//   to its anagrams container to save implementing an operator=().
+// * Refactor the dictionary-based tests into a class so they can share the
+//   generated anagrams class.
+// * Implement a test to find the largest group of anagrams - the results
+//   have been verified by hacking around with grep and cut.
+//
 // Revision 1.5  2004/02/09 07:29:42  mathie
 // * More whitespace cleanup...
 // * Implement anagrams::size() correctly (I can't believe that took me two
@@ -40,6 +48,7 @@
 
 #include <boost/test/unit_test.hpp>
 #include <boost/compose.hpp>
+#include <boost/shared_ptr.hpp>
 #include <algorithm>
 #include <functional>
 #include <map>
@@ -50,6 +59,7 @@
 
 using boost::unit_test_framework::test_suite;
 using boost::compose_f_gx;
+using boost::shared_ptr;
 
 using namespace std;
 
@@ -105,6 +115,12 @@ class word_rep
     return lexicographical_compare(char_count_begin, char_count_end,
                                    rhs.char_count_begin, rhs.char_count_end);
   }
+  friend ostream& operator<<(ostream& s, const word_rep& w)
+  {
+    s << w.word;
+    return s;
+  }
+
 };
 
 class anagrams
@@ -123,14 +139,15 @@ class anagrams
   class iterator : public std::iterator<std::bidirectional_iterator_tag,
                                         word_list, ptrdiff_t>
   {
-    const anagrams& al;
+    const anagrams* al;
     anagram_list::const_iterator it;
 
   public:
     iterator(const anagrams& a, const anagram_list::const_iterator& i)
-      : al(a), it(i)
+      : al(&a), it(i)
     {
     }
+
     bool operator==(const iterator& x) const
     {
       return it == x.it;
@@ -152,7 +169,7 @@ class anagrams
     {
       do {
         ++it;
-      } while(it->second.size() < 2 && *this != al.end());
+      } while(it->second.size() < 2 && *this != al->end());
       return *this;
     }
     iterator operator++(int)
@@ -165,7 +182,7 @@ class anagrams
     {
       do {
         --it;
-      } while(it->second.size() < 2 && *this != al.begin());
+      } while(it->second.size() < 2 && *this != al->begin());
       return *this;
     }
     iterator operator--(int)
@@ -319,38 +336,55 @@ void test_anagrams()
   }
 }
 
-void load_dictionary(pair<string, pair<string, size_t> > args)
+class test_dictionary
 {
-  const string& infile = args.first;
-  const string& outfile = args.second.first;
-  const size_t expected_results = args.second.second;
-
-  BOOST_MESSAGE("Retrieving from " << infile << ", writing to " << outfile);
-
-  ifstream in(infile.c_str());
   anagrams a;
+  const string in_file;
+  const string out_file;
+  const size_t expected_groups;
+  const string expected_largest_group;
 
-  copy(istream_iterator<string>(in), istream_iterator<string>(),
-       back_inserter(a));
-
-  BOOST_CHECK_EQUAL(a.size(), expected_results);
-
-  ofstream out(outfile.c_str());
-  out << a;
-}
-
-class test_dictionaries : public test_suite
-{
-  set<pair<string, pair<string, size_t> > > dictionaries;
  public:
-  test_dictionaries()
+  test_dictionary(const string& in_file, const string& out_file,
+                  size_t expected_groups, const string& expected_largest_group)
+    : in_file(in_file), out_file(out_file), expected_groups(expected_groups),
+      expected_largest_group(expected_largest_group)
   {
-    dictionaries.insert(make_pair("wordlist.txt",
-                                  make_pair("wordlist.out", 2530)));
-    dictionaries.insert(make_pair("/usr/share/dict/words",
-                                  make_pair("maindict.out", 15048)));
-    add(BOOST_PARAM_TEST_CASE(load_dictionary, dictionaries.begin(),
-                              dictionaries.end()));
+  }
+
+  void load()
+  {
+    BOOST_MESSAGE("Retrieving dictionary " << in_file << "...");
+    ifstream f(in_file.c_str());
+    copy(istream_iterator<string>(f), istream_iterator<string>(),
+         back_inserter(a));
+
+    BOOST_CHECK_EQUAL(a.size(), expected_groups);
+  }
+
+  void write_out()
+  {
+    ofstream f(out_file.c_str());
+    f << a;
+  }
+
+  void find_largest_group()
+  {
+    size_t l_sz = 1;
+    anagrams::word_list l;
+    for(anagrams::iterator it = a.begin();
+        it != a.end();
+        it = find_if(++it, a.end(),
+                     compose_f_gx(bind2nd(greater<size_t>(), l_sz),
+                                  mem_fun_ref(&anagrams::word_list::size)))) {
+      l = *it;
+      l_sz = it->size();
+    }
+    BOOST_CHECK_EQUAL(word_rep(expected_largest_group), word_rep(*l.begin()));
+  }
+
+  void find_longest_anagram()
+  {
   }
 };
 
@@ -359,6 +393,27 @@ test_suite *init_unit_test_suite(int argc, char *argv[])
   test_suite *t = BOOST_TEST_SUITE("Code Kata 6: Anagrams");
   t->add(BOOST_TEST_CASE(test_word_rep));
   t->add(BOOST_TEST_CASE(test_anagrams));
-  t->add(new test_dictionaries);
+
+  shared_ptr<test_dictionary> kata_dict(new test_dictionary("wordlist.txt",
+                                                            "wordlist.out",
+                                                            2530,
+                                                            "spear"));
+  shared_ptr<test_dictionary> main_dict(new test_dictionary("/usr/share/dict/words",
+                                                            "maindict.out",
+                                                            15048,
+                                                            "organ"));
+  t->add(BOOST_CLASS_TEST_CASE(&test_dictionary::load, kata_dict));
+  t->add(BOOST_CLASS_TEST_CASE(&test_dictionary::write_out, kata_dict));
+  t->add(BOOST_CLASS_TEST_CASE(&test_dictionary::find_largest_group,
+                               kata_dict));
+  t->add(BOOST_CLASS_TEST_CASE(&test_dictionary::find_longest_anagram,
+                               kata_dict));
+  t->add(BOOST_CLASS_TEST_CASE(&test_dictionary::load, main_dict));
+  t->add(BOOST_CLASS_TEST_CASE(&test_dictionary::write_out, main_dict));
+  t->add(BOOST_CLASS_TEST_CASE(&test_dictionary::find_largest_group,
+                               main_dict));
+  t->add(BOOST_CLASS_TEST_CASE(&test_dictionary::find_longest_anagram,
+                               main_dict));
+
   return t;
 }
