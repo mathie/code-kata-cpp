@@ -1,8 +1,11 @@
 // Code Kata 2: Binary chop
 //
-// $Id: kata2.cc,v 1.2 2004/02/02 11:44:34 mathie Exp $
+// $Id: kata2.cc,v 1.3 2004/02/02 11:58:18 mathie Exp $
 //
 // $Log: kata2.cc,v $
+// Revision 1.3  2004/02/02 11:58:18  mathie
+// * Added implementation notes for Monday.
+//
 // Revision 1.2  2004/02/02 11:44:34  mathie
 // * Templatize the chop functions so that they accept a generic iterator.
 // * Test with both an array and a vector to make sure the templatizing
@@ -37,6 +40,13 @@ using boost::unit_test_framework::test_suite;
 using namespace std;
 
 // Monday is the recursive case
+// Implementation notes: Today was very straightforward - I spent longer
+// trying (and failing) to figure out how to templatize the test
+// function.  The only complication was retaining the past-the-end
+// failure return value if the chop narrowed down the search scope to
+// (begin, middle].  I first implemented the specific case of handling
+// arrays before figuring out the appropriate template incantation to
+// get it to work with generic iterators.
 template<class Iter>
 const Iter monday(const int val, Iter begin, const Iter end)
 {
