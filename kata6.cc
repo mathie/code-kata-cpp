@@ -1,8 +1,14 @@
 // Code Kata 6: Anagrams
 //
-// $Id: kata6.cc,v 1.2 2004/02/07 07:04:15 mathie Exp $
+// $Id: kata6.cc,v 1.3 2004/02/07 09:09:47 mathie Exp $
 //
 // $Log: kata6.cc,v $
+// Revision 1.3  2004/02/07 09:09:47  mathie
+// * Normalise case, ignore non-alpha characters (instead of assert()ing on
+//   them).
+// * When output is generated, ignore words in map which have no anagrams.
+// * Test functions to generate anagram lists from dictionary files.
+//
 // Revision 1.2  2004/02/07 07:04:15  mathie
 // * Very basic implementation so far - a class to encapsulate word
 //   'equivalence' (ie they share all the same characters) and a class
@@ -21,7 +27,9 @@
 #include <functional>
 #include <map>
 #include <set>
+#include <list>
 #include <iostream>
+#include <fstream>
 
 using boost::unit_test_framework::test_suite;
 using namespace std;
@@ -40,11 +48,16 @@ class word_rep
   {
     fill(char_count_begin, char_count_end, 0);
     for(string::const_iterator it = word.begin(); it != word.end(); it++) {
-      assert(isalpha(*it) && islower(*it));
-      char_count[*it - 'a']++;
+      if(!isalpha(*it)) {
+        BOOST_MESSAGE("Word '" << word << "' contains non-alpha characters.  "
+                      << "Ignoring them...");
+        continue;
+      }
+      char_count[*it - (islower(*it) ? 'a' : 'A')]++;
     }
   }
 
+  // Copy-constructor, required to explicitly copy char_count.
   word_rep(const word_rep& c)
     : char_count_begin(char_count),
       char_count_end(char_count + sizeof(char_count)/sizeof(*char_count)),
@@ -107,9 +120,13 @@ class anagrams
   friend ostream& operator<<(ostream& s, const anagrams& a) 
   {
     for(anagram_list::const_iterator i = a.al.begin(); i != a.al.end(); i++) {
-      for(word_list::const_iterator j = i->second.begin();
-          j != i->second.end(); j++) {
-        s << *j << " ";
+      if(i->second.size() < 2) {
+        continue;
+      }
+      word_list::const_iterator j = i->second.begin();
+      s << *j;
+      while(++j != i->second.end()) {
+        s << " " << *j;
       }
       s << endl;
     }
@@ -211,11 +228,44 @@ void test_anagrams()
   cout << a;
 }
 
+void load_dictionary(pair<string, string> args)
+{
+  const string& infile = args.first;
+  const string& outfile = args.second;
+
+  BOOST_MESSAGE("Retrieving from " << infile << ", writing to " << outfile);
+  
+  ifstream in(infile.c_str());
+  string word;
+  anagrams a;
+  
+  while(getline(in, word)) {
+    a.insert(word);
+  }
+
+  ofstream out(outfile.c_str());
+  out << a;
+}
+
+class test_dictionaries : public test_suite
+{
+  list<pair<string, string> > dictionaries;
+ public:
+  test_dictionaries()
+  {
+    dictionaries.push_back(make_pair("wordlist.txt", "wordlist.out"));
+    dictionaries.push_back(make_pair("/usr/share/dict/words", "maindict.out"));
+    
+    add(BOOST_PARAM_TEST_CASE(load_dictionary, dictionaries.begin(),
+                              dictionaries.end()));
+  }
+};
 
 test_suite *init_unit_test_suite(int argc, char *argv[])
 {
   test_suite *t = BOOST_TEST_SUITE("Code Kata 6: Anagrams");
   t->add(BOOST_TEST_CASE(test_word_rep));
   t->add(BOOST_TEST_CASE(test_anagrams));
+  t->add(new test_dictionaries);
   return t;
 }
