@@ -1,8 +1,12 @@
 // Code Kata 4: Data Munging
 //
-// $Id: kata4.cc,v 1.4 2004/02/02 17:13:16 mathie Exp $
+// $Id: kata4.cc,v 1.5 2004/02/09 11:47:10 mathie Exp $
 //
 // $Log: kata4.cc,v $
+// Revision 1.5  2004/02/09 11:47:10  mathie
+// * Link to unit test framework instead of including it.  Speeds up
+//   compilation time no end...
+//
 // Revision 1.4  2004/02/02 17:13:16  mathie
 // * Implement new versions of the functions from parts one and two,
 //   factoring out as much common code as possible.  Personally, I think
@@ -24,7 +28,6 @@
 // http://www.pragprog.com/pragdave/Practices/Kata/KataFour.rdoc
 
 #include <boost/test/unit_test.hpp>
-#include <boost/test/included/unit_test_framework.hpp>
 
 #include <fstream>
 #include <cstdlib>
