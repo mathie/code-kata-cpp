@@ -1,8 +1,12 @@
 // Code Kata 6: Anagrams
 //
-// $Id: kata6.cc,v 1.6 2004/02/09 09:53:32 mathie Exp $
+// $Id: kata6.cc,v 1.7 2004/02/09 11:27:33 mathie Exp $
 //
 // $Log: kata6.cc,v $
+// Revision 1.7  2004/02/09 11:27:33  mathie
+// * Refactor test_dictionary::find_largest_group().
+// * Implement test_dictionary::find_longgest_anagram().
+//
 // Revision 1.6  2004/02/09 09:53:32  mathie
 // * Change anagrams::iterator to store a pointer (rather than a reference)
 //   to its anagrams container to save implementing an operator=().
@@ -336,6 +340,16 @@ void test_anagrams()
   }
 }
 
+template<typename F>
+struct first_element_functor
+  : public unary_function<F, typename F::value_type>
+{
+  typename first_element_functor<F>::result_type operator()(typename first_element_functor<F>::argument_type x) const
+  {
+    return *x.begin();
+  }
+};
+
 class test_dictionary
 {
   anagrams a;
@@ -343,12 +357,15 @@ class test_dictionary
   const string out_file;
   const size_t expected_groups;
   const string expected_largest_group;
+  const string expected_longest_anagram;
 
  public:
   test_dictionary(const string& in_file, const string& out_file,
-                  size_t expected_groups, const string& expected_largest_group)
+                  size_t expected_groups, const string& expected_largest_group,
+                  const string& expected_longest_anagram)
     : in_file(in_file), out_file(out_file), expected_groups(expected_groups),
-      expected_largest_group(expected_largest_group)
+      expected_largest_group(expected_largest_group),
+      expected_longest_anagram(expected_longest_anagram)
   {
   }
 
@@ -370,21 +387,38 @@ class test_dictionary
 
   void find_largest_group()
   {
-    size_t l_sz = 1;
-    anagrams::word_list l;
+    anagrams::iterator l = a.begin();
     for(anagrams::iterator it = a.begin();
         it != a.end();
         it = find_if(++it, a.end(),
-                     compose_f_gx(bind2nd(greater<size_t>(), l_sz),
+                     compose_f_gx(bind2nd(greater<size_t>(), l->size()),
                                   mem_fun_ref(&anagrams::word_list::size)))) {
-      l = *it;
-      l_sz = it->size();
+      l = it;
     }
-    BOOST_CHECK_EQUAL(word_rep(expected_largest_group), word_rep(*l.begin()));
+    cout << "Largest group (" << in_file << "): ";
+    copy(l->begin(), l->end(), ostream_iterator<string>(cout, " "));
+    cout << endl;
+    BOOST_CHECK_EQUAL(word_rep(expected_largest_group), word_rep(*l->begin()));
   }
 
   void find_longest_anagram()
   {
+    anagrams::iterator l = a.begin();
+    for(anagrams::iterator it = a.begin();
+        it != a.end();
+        it = find_if(++it, a.end(),
+                     compose_f_gx(bind2nd(greater<size_t>(),
+                                          l->begin()->size()),
+                                  compose_f_gx(mem_fun_ref(&string::size),
+                                               first_element_functor<anagrams::word_list>())))) {
+      l = it;
+    }
+    cout << "Longest anagram (" << in_file << "): ";
+    copy(l->begin(), l->end(), ostream_iterator<string>(cout, " "));
+    cout << endl;
+
+    BOOST_CHECK_EQUAL(word_rep(expected_longest_anagram),
+                      word_rep(*l->begin()));
   }
 };
 
@@ -397,11 +431,13 @@ test_suite *init_unit_test_suite(int argc, char *argv[])
   shared_ptr<test_dictionary> kata_dict(new test_dictionary("wordlist.txt",
                                                             "wordlist.out",
                                                             2530,
-                                                            "spear"));
+                                                            "spear",
+                                                            "algorithmically"));
   shared_ptr<test_dictionary> main_dict(new test_dictionary("/usr/share/dict/words",
                                                             "maindict.out",
                                                             15048,
-                                                            "organ"));
+                                                            "organ",
+                                                            "cholecystoduodenostomy"));
   t->add(BOOST_CLASS_TEST_CASE(&test_dictionary::load, kata_dict));
   t->add(BOOST_CLASS_TEST_CASE(&test_dictionary::write_out, kata_dict));
   t->add(BOOST_CLASS_TEST_CASE(&test_dictionary::find_largest_group,
