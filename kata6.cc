@@ -1,8 +1,17 @@
 // Code Kata 6: Anagrams
 //
-// $Id: kata6.cc,v 1.3 2004/02/07 09:09:47 mathie Exp $
+// $Id: kata6.cc,v 1.4 2004/02/07 16:55:12 mathie Exp $
 //
 // $Log: kata6.cc,v $
+// Revision 1.4  2004/02/07 16:55:12  mathie
+// * Tidy up whitespace.
+// * Implement an iterator for anagrams in terms of the map it's composed
+//   with.
+// * Use Std C++ Library algorithms where possible.
+// * Add to the test_anagrams() function to verify the result is correct.
+//
+// Still some work required to tidy things up...
+//
 // Revision 1.3  2004/02/07 09:09:47  mathie
 // * Normalise case, ignore non-alpha characters (instead of assert()ing on
 //   them).
@@ -27,7 +36,7 @@
 #include <functional>
 #include <map>
 #include <set>
-#include <list>
+#include <iterator>
 #include <iostream>
 #include <fstream>
 
@@ -39,7 +48,7 @@ class word_rep
   unsigned int char_count[26];
   unsigned int *char_count_begin, *char_count_end;
   const string word;
-  
+
  public:
   word_rep(const string& word)
     : char_count_begin(char_count),
@@ -65,12 +74,12 @@ class word_rep
   {
     copy(c.char_count_begin, c.char_count_end, char_count_begin);
   }
-  
+
   const string& get_word() const
   {
     return word;
   }
-  
+
   bool operator==(const word_rep& rhs) const
   {
     return equal(char_count_begin, char_count_end, rhs.char_count_begin);
@@ -88,51 +97,121 @@ class word_rep
   }
 };
 
+
+
 class anagrams 
 {
+ public:
+  typedef const string& const_reference;
   typedef set<string> word_list;
+  friend ostream& operator<<(ostream& s, const anagrams::word_list& l);
+
+ private:
   typedef map<word_rep, word_list> anagram_list;
-  
+
   anagram_list al;
 
  public:
+  class iterator : public std::iterator<std::bidirectional_iterator_tag,
+                                        word_list, ptrdiff_t>
+  {
+    const anagrams& al;
+    anagram_list::const_iterator it;
+
+  public:
+    iterator(const anagrams& a, const anagram_list::const_iterator& i)
+      : al(a), it(i)
+    {
+    }
+    bool operator==(const iterator& x) const 
+    {
+      return it == x.it;
+    }
+    bool operator!=(const iterator& x) const
+    {
+      return !(*this == x);
+    }
+    const word_list& operator*() const 
+    {
+      return it->second;
+    }
+    const word_list* operator->() const
+    {
+      return &it->second;
+    }
+
+    iterator& operator++() 
+    {
+      do {
+        ++it;
+      } while(it->second.size() < 2 && *this != al.end());
+      return *this;
+    }
+    iterator operator++(int) 
+    {
+      iterator tmp = *this;
+      ++*this;
+      return tmp;
+    }
+    iterator& operator--()
+    {
+      do {
+        --it;
+      } while(it->second.size() < 2 && *this != al.begin());
+      return *this;
+    }
+    iterator operator--(int) 
+    {
+      iterator tmp = *this;
+      --*this;
+      return tmp;
+    }
+  };
+
   void insert(const string& w) 
   {
-    word_rep word(w);
-    
-#if 0
-    anagram_list::const_iterator it = al.find(word);
-    if(it != al.end()) {
-      clog << "Word '"<< word.get_word() <<"' is already represented:" << endl
-           << "    First word: " << it->first.get_word() << endl
-           << "    ";
-      copy(it->second.begin(), it->second.end(),
-           ostream_iterator<string>(clog, " "));
-      clog << endl;
-    } else {
-      clog << "Word '" << word.get_word() << "' has no anagrams.  Inserting."
-           << endl;
-    }
-#endif
-    al[word].insert(word.get_word());
+    al[word_rep(w)].insert(w);
+  }
+  void push_back(const string& w)
+  {
+    insert(w);
+  }
+
+  iterator begin() const
+  {
+    return iterator(*this, al.begin());
+  }
+
+  iterator end() const
+  {
+    return iterator(*this, al.end());
+  }
+
+  int size() const
+  {
+    return al.size();
   }
 
   friend ostream& operator<<(ostream& s, const anagrams& a) 
   {
-    for(anagram_list::const_iterator i = a.al.begin(); i != a.al.end(); i++) {
-      if(i->second.size() < 2) {
-        continue;
-      }
-      word_list::const_iterator j = i->second.begin();
-      s << *j;
-      while(++j != i->second.end()) {
-        s << " " << *j;
-      }
-      s << endl;
+    // FIXME: Why doesn't the copy() version work?
+    // copy(a.begin(), a.end(), ostream_iterator<word_list>(s, "\n"));    
+    for(iterator it = a.begin(); it != a.end(); it++) {
+      s << *it << "..." << endl;
     }
     return s;
   }
 };
+
+ostream& operator<<(ostream& s, const anagrams::word_list& l)
+{
+  set<string>::const_iterator j = l.begin();
+  s << *j;
+  while(++j != l.end()) {
+    s << " " << *j;
+  }
+  return s;
+}
 
 // Test functions
 void test_word_rep()
@@ -164,7 +243,7 @@ void test_word_rep()
   // All permutations of equal words from the above list.
   BOOST_CHECK(kinship == pinkish);
   BOOST_CHECK(pinkish == kinship);
-  
+
   BOOST_CHECK(enlist == inlets);
   BOOST_CHECK(enlist == listen);
   BOOST_CHECK(enlist == silent);
@@ -177,7 +256,7 @@ void test_word_rep()
   BOOST_CHECK(silent == enlist);
   BOOST_CHECK(silent == inlets);
   BOOST_CHECK(silent == listen);
-  
+
   BOOST_CHECK(boaster == boaters);
   BOOST_CHECK(boaster == borates);
   BOOST_CHECK(boaters == borates);
@@ -206,7 +285,6 @@ void test_word_rep()
   BOOST_CHECK(!(stink < knits));
   BOOST_CHECK(stink < skins);
   BOOST_CHECK(rots < knits);
-  
 }
 
 void test_anagrams()
@@ -221,11 +299,14 @@ void test_anagrams()
   const size_t l_sz = sizeof l / sizeof *l;
   anagrams a;
 
-  for(unsigned int i = 0; i < l_sz; i++) {
-    a.insert(l[i]);
-  }
+  copy(l, l + l_sz, back_inserter(a));
 
-  cout << a;
+  for(anagrams::iterator it = a.begin(); it != a.end(); it++) {
+    word_rep first(*it->begin());
+    for(set<string>::const_iterator jt = it->begin(); jt != it->end(); jt++) {
+      BOOST_CHECK(first == word_rep(*jt));
+    }
+  }
 }
 
 void load_dictionary(pair<string, string> args)
@@ -234,14 +315,12 @@ void load_dictionary(pair<string, string> args)
   const string& outfile = args.second;
 
   BOOST_MESSAGE("Retrieving from " << infile << ", writing to " << outfile);
-  
+
   ifstream in(infile.c_str());
-  string word;
   anagrams a;
-  
-  while(getline(in, word)) {
-    a.insert(word);
-  }
+
+  copy(istream_iterator<string>(in), istream_iterator<string>(),
+       back_inserter(a));
 
   ofstream out(outfile.c_str());
   out << a;
@@ -249,13 +328,12 @@ void load_dictionary(pair<string, string> args)
 
 class test_dictionaries : public test_suite
 {
-  list<pair<string, string> > dictionaries;
+  set<pair<string, string> > dictionaries;
  public:
   test_dictionaries()
   {
-    dictionaries.push_back(make_pair("wordlist.txt", "wordlist.out"));
-    dictionaries.push_back(make_pair("/usr/share/dict/words", "maindict.out"));
-    
+    dictionaries.insert(make_pair("wordlist.txt", "wordlist.out"));
+    dictionaries.insert(make_pair("/usr/share/dict/words", "maindict.out"));
     add(BOOST_PARAM_TEST_CASE(load_dictionary, dictionaries.begin(),
                               dictionaries.end()));
   }
