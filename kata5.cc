@@ -1,8 +1,15 @@
 // Code Kata 5: Bloom Filters
 //
-// $Id: kata5.cc,v 1.4 2004/02/03 18:17:25 mathie Exp $
+// $Id: kata5.cc,v 1.5 2004/02/05 06:04:00 mathie Exp $
 //
 // $Log: kata5.cc,v $
+// Revision 1.5  2004/02/05 06:04:00  mathie
+// * Replace output messages in the test suite with BOOST_MESSAGE() so
+//   the verbosity of the test run is controlled by the test suite itself.
+// * Include a note about the current constraints of the md5_hash hash
+//   size, backing it up with static assertions.
+// * Parameterise test_md5_hash(), test_dictionary and test_random_words.
+//
 // Revision 1.4  2004/02/03 18:17:25  mathie
 // * Load /usr/share/dict/words into various-sized bloom filters with
 //   various hash functions.
@@ -33,6 +40,7 @@
 // http://www.pragprog.com/pragdave/Practices/Kata/KataFive.rdoc
 
 #include <boost/test/unit_test.hpp>
+#include <boost/static_assert.hpp>
 
 #include <string>
 #include <bitset>
@@ -119,8 +127,8 @@ void test_split_into_chars_hash()
   bf.insert("bar");
   bf.insert("bazification");
 
-  cout << "bloom_filter<split_into_chars> with 3 entries is "
-       << bf.saturation() << "% full." << endl;
+  BOOST_MESSAGE("bloom_filter<split_into_chars> with 3 entries is "
+                << bf.saturation() << "% full.");
   
   // Successful lookups
   BOOST_CHECK(bf.lookup("foo") == true);
@@ -163,8 +171,8 @@ void test_char_pairs_hash()
   bf.insert("bars");
   bf.insert("bazification");
 
-  cout << "bloom_filter<char_pairs> with 3 entries is "
-       << bf.saturation() << "% full." << endl;
+  BOOST_MESSAGE("bloom_filter<char_pairs> with 3 entries is "
+                << bf.saturation() << "% full.");
   
   // Successful lookups
   BOOST_CHECK(bf.lookup("foo") == true);
@@ -182,6 +190,12 @@ void test_char_pairs_hash()
 template <size_t hash_bits = 16>
 class md5_hash
 {
+  // TODO: This currently only works where (hash_bits % 8) == 0 and
+  // hash_bits < 32, mostly because of the for loop in operator() which
+  // turns the MD5 string into a list of appropriately-sized hashes.
+  BOOST_STATIC_ASSERT(hash_bits % 8 == 0);
+  BOOST_STATIC_ASSERT(hash_bits < 32);
+  
  public:
   static const int map_size;
   
@@ -194,11 +208,11 @@ class md5_hash
     MD5_Final(hash, &context);
 
 #if 0
-    cout << "hash = ";
+    clog << "hash = ";
     for(unsigned int i  = 0; i < 16; i++) {
-      cout << hex << static_cast<unsigned int>(hash[i]);
+      clog << hex << static_cast<unsigned int>(hash[i]);
     }
-    cout << endl;
+    clog << endl;
 #endif
 
     hash_list h;
@@ -211,11 +225,11 @@ class md5_hash
     }
     
 #if 0
-    cout << "hash_list = ";
+    clog << "hash_list = ";
     for(hash_list::const_iterator i = h.begin(); i != h.end(); i++) {
-      cout << hex << *i << ", ";
+      clog << hex << *i << ", ";
     }
-    cout << endl;
+    clog << endl;
 #endif
     
     return h;
@@ -225,66 +239,41 @@ class md5_hash
 template <size_t hash_bits>
 const int md5_hash<hash_bits>::map_size = (1 << hash_bits);
 
+template <size_t hash_bits>
 void test_md5_hash()
 {
-  bloom_filter<md5_hash<> > bf;
+  bloom_filter<md5_hash<hash_bits> > bf;
   bf.insert("foo");
   bf.insert("bars");
   bf.insert("bazification");
 
-  cout << "bloom_filter<md5_hash<16> > with 3 entries is "
-       << bf.saturation() << "% full." << endl;
-  
+  BOOST_MESSAGE("bloom_filter<md5_hash<" << hash_bits
+                << "> > with 3 entries is " << bf.saturation() << "% full.");
+
   // Successful lookups
-  BOOST_CHECK(bf.lookup("foo") == true);
-  BOOST_CHECK(bf.lookup("bars") == true);
-  BOOST_CHECK(bf.lookup("bazification") == true);
+  BOOST_CHECK_EQUAL(bf.lookup("foo"), true);
+  BOOST_CHECK_EQUAL(bf.lookup("bars"), true);
+  BOOST_CHECK_EQUAL(bf.lookup("bazification"), true);
 
   // Try some things not in the dictionary
-  BOOST_CHECK(bf.lookup("notindict") == false);
-
-  bloom_filter<md5_hash<24> > bf24;
-  bf24.insert("foo");
-  bf24.insert("bars");
-  bf24.insert("bazification");
-
-  cout << "bloom_filter<md5_hash<24> > with 3 entries is "
-       << bf.saturation() << "% full." << endl;
-  
-  // Successful lookups
-  BOOST_CHECK(bf24.lookup("foo") == true);
-  BOOST_CHECK(bf24.lookup("bars") == true);
-  BOOST_CHECK(bf24.lookup("bazification") == true);
-
-  // Try some things not in the dictionary
-  BOOST_CHECK(bf24.lookup("notindict") == false);
+  BOOST_CHECK_EQUAL(bf.lookup("notindict"), false);
 }
 
+template <class hash_fn>
 void test_dictionary()
 {
-  bloom_filter<md5_hash<8> > bf8;
-  bf8.load_dictionary(dict);
-  bloom_filter<md5_hash<16> > bf16;
-  bf16.load_dictionary(dict);
-  bloom_filter<md5_hash<24> > bf24;
-  bf24.load_dictionary(dict);
-
+  bloom_filter<hash_fn> bf;
+  bf.load_dictionary(dict);
   ifstream f(dict.c_str());
   string word;
   unsigned int n_words = 0;
   while(getline(f, word)) {
-    BOOST_CHECK(bf8.lookup(word) == true); // No false negatives!
-    BOOST_CHECK(bf16.lookup(word) == true); // No false negatives!
-    BOOST_CHECK(bf24.lookup(word) == true); // No false negatives!
+    BOOST_CHECK_EQUAL(bf.lookup(word), true); // No false negatives!
     n_words++;
   }
 
-  cout << "bloom_filter<md5_hash<8> > with " << n_words << " entries is "
-       << bf8.saturation() << "% full." << endl;
-  cout << "bloom_filter<md5_hash<16> > with " << n_words << " entries is "
-       << bf16.saturation() << "% full." << endl;
-  cout << "bloom_filter<md5_hash<24> > with " << n_words << " entries is "
-       << bf24.saturation() << "% full." << endl;
+  BOOST_MESSAGE(typeid(bf).name() << " with " << n_words
+                << " entries is " << bf.saturation() << "% full.");
 }
 
 template <size_t len>
@@ -298,12 +287,13 @@ string random_word()
   return string(word);
 }
 
+template<class hash_fn>
 void test_random_words()
 {
   unsigned int pos = 0, neg = 0, fpos = 0;
   const unsigned int tests = 10000;
   
-  bloom_filter<md5_hash<24> > bf;
+  bloom_filter<hash_fn> bf;
   bf.load_dictionary(dict);
 
   set<string> real_dict;
@@ -317,8 +307,8 @@ void test_random_words()
   for(unsigned int i = 0; i < tests; i++) {
     string rword = random_word<5>();
     if(bf.lookup(rword)) {
-      cout << rword << endl;
       if(real_dict.find(rword) == real_dict.end()) {
+        BOOST_WARN_MESSAGE(true, "False positive found: " << rword);
         fpos++;
       } else {
         pos++;
@@ -328,10 +318,11 @@ void test_random_words()
     }
   }
 
-  cout << "For " << tests << " test cases, there were "
-       << neg << " words not in the dictionary, " << endl
-       << pos << " words verified as being in the dictionary and "
-       << fpos << " false positives." << endl;
+  BOOST_MESSAGE("With hash function " << typeid(hash_fn).name() << ",\n"
+                << "for " << tests << " test cases, there were "
+                << neg << " words not in the dictionary,\n"
+                << pos << " words verified as being in the dictionary and "
+                << fpos << " false positives.");
 }
 
 test_suite *init_unit_test_suite(int argc, char *argv[])
@@ -341,8 +332,12 @@ test_suite *init_unit_test_suite(int argc, char *argv[])
   test_suite *t = BOOST_TEST_SUITE("Code Kata 5: Bloom Filters");
   t->add(BOOST_TEST_CASE(&test_split_into_chars_hash));
   t->add(BOOST_TEST_CASE(&test_char_pairs_hash));
-  t->add(BOOST_TEST_CASE(&test_md5_hash));
-  t->add(BOOST_TEST_CASE(&test_dictionary));
-  t->add(BOOST_TEST_CASE(&test_random_words));
+  t->add(BOOST_TEST_CASE(&test_md5_hash<8>));
+  t->add(BOOST_TEST_CASE(&test_md5_hash<16>));
+  t->add(BOOST_TEST_CASE(&test_md5_hash<24>));
+  t->add(BOOST_TEST_CASE(&test_dictionary<md5_hash<8> >));
+  t->add(BOOST_TEST_CASE(&test_dictionary<md5_hash<16> >));
+  t->add(BOOST_TEST_CASE(&test_dictionary<md5_hash<24> >));
+  t->add(BOOST_TEST_CASE(&test_random_words<md5_hash<24> >));
   return t;
 }
