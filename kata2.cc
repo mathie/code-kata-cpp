@@ -1,8 +1,12 @@
 // Code Kata 2: Binary chop
 //
-// $Id: kata2.cc,v 1.3 2004/02/02 11:58:18 mathie Exp $
+// $Id: kata2.cc,v 1.4 2004/02/05 15:45:21 mathie Exp $
 //
 // $Log: kata2.cc,v $
+// Revision 1.4  2004/02/05 15:45:21  mathie
+// * Link with the boost unit test library rather than including it
+//   wholesale.  Makes for faster compile times...
+//
 // Revision 1.3  2004/02/02 11:58:18  mathie
 // * Added implementation notes for Monday.
 //
@@ -32,7 +36,6 @@
 // like a good idea to me...
 
 #include <boost/test/unit_test.hpp>
-#include <boost/test/included/unit_test_framework.hpp>
 
 #include <vector>
 
