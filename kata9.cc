@@ -1,8 +1,19 @@
 // Code Kata 9: Back to the Checkout
 //
-// $Id: kata9.cc,v 1.3 2004/02/09 13:14:23 mathie Exp $
+// $Id: kata9.cc,v 1.4 2004/02/09 13:29:35 mathie Exp $
 //
 // $Log: kata9.cc,v $
+// Revision 1.4  2004/02/09 13:29:35  mathie
+// * Obey special offer pricing rules.  This is done by checkout::scan()
+//   merely keeping track of what's been scanned.  A total is only
+//   calculated when checkout::total() is called, at which point, we know
+//   the quantities of all items.  This can be passed to the checkout_rules
+//   object to allow it to calculate the total for that line based upon its
+//   rules.
+//
+// The code could do with being cleaned up to be more readable, but it
+// works.
+//
 // Revision 1.3  2004/02/09 13:14:23  mathie
 // * Implement enough of the checkout and checkout_rules to handle regular
 //   pricing of items.
@@ -74,29 +85,36 @@ class checkout_rules
     if(it == rules.end()) {
       throw logic_error("There is no such item!");
     }
-    return it->second.p * q;
+    return it->second.p * (q % it->second.r.first)
+      + (it->second.r.second * (q / it->second.r.first));
   }
 };
 
 class checkout
 {
+  typedef map<item, quantity> item_list;
+  item_list items;
   checkout_rules rules;
-  unsigned int t;
 
  public:
   checkout(const checkout_rules& r)
-    : rules(r), t(0)
+    : rules(r)
   {
   }
 
   unsigned int total() const
   {
+    price t = 0;
+    for(item_list::const_iterator it = items.begin();
+        it != items.end(); it++) {
+      t += rules.get_price(it->first, it->second);
+    }
     return t;
   }
 
   void scan(const item& i)
   {
-    t += rules.get_price(i, 1);
+    items[i]++;
   }
 };
 
