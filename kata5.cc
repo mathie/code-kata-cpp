@@ -1,8 +1,11 @@
 // Code Kata 5: Bloom Filters
 //
-// $Id: kata5.cc,v 1.6 2004/02/05 13:52:43 mathie Exp $
+// $Id: kata5.cc,v 1.7 2004/02/05 14:58:26 mathie Exp $
 //
 // $Log: kata5.cc,v $
+// Revision 1.7  2004/02/05 14:58:26  mathie
+// * Tidy up whitespace and output messages.
+//
 // Revision 1.6  2004/02/05 13:52:43  mathie
 // * All use of an individual hash from the hash_list is typed in terms of
 //   hash_list::value_type.
@@ -73,12 +76,11 @@ template <class hash_fn,
 class bloom_filter 
 {
   static const hash_list::value_type ms;
-  
+
   bitset<map_size> map;
   hash_fn hashes;
-  
- public:
 
+ public:
   void insert(const string& word)
   {
     hash_list h = hashes(word);
@@ -95,7 +97,7 @@ class bloom_filter
       insert(line);
     }
   }
-  
+
   bool lookup(const string& word) const
   {
     hash_list h = hashes(word);
@@ -130,10 +132,10 @@ const hash_list::value_type bloom_filter<hash_fn, map_size>::ms = map_size;
 class split_into_chars
 {
   static const string name;
-  
+
  public:
   static const hash_list::value_type map_size;
-  
+
   hash_list operator()(const string& word) const
   {
     hash_list h;
@@ -146,7 +148,7 @@ class split_into_chars
   {
     return name;
   }
-  
+
 };
 
 const hash_list::value_type split_into_chars::map_size = 256;
@@ -155,10 +157,10 @@ const string split_into_chars::name = "split_into_chars";
 class char_pairs
 {
   static const string name;
-  
+
  public:
   static const hash_list::value_type map_size;
-  
+
   hash_list operator()(const string& word) const
   {
     hash_list h;
@@ -218,8 +220,7 @@ class md5_hash
       const unsigned int end_bit = start_bit + hash_bits - 1;
       const unsigned int end_byte = end_bit >> 3;
       const unsigned int end_byte_bits = (end_bit + 1) % 8;
-      
-      
+
       hash_list::value_type v = 0;
       for(unsigned int i = 0; i <= (end_byte - start_byte); i++) {
         v += hash[end_byte - i] << (i << 3);
@@ -227,7 +228,7 @@ class md5_hash
       v >>= end_byte_bits;
       v &= (1 << hash_bits) - 1;
       assert(v >= 0 && v < (1 << hash_bits));
-      
+
 #if 0
       clog << "start_bit = " << dec << start_bit
            << ", start_byte = " << dec << start_byte
@@ -245,7 +246,7 @@ class md5_hash
     if(h.back() == 0) {
       h.pop_back();
     }
-    
+
 #if 0
     clog << "hash_list = ";
     for(hash_list::const_iterator i = h.begin(); i != h.end(); i++) {
@@ -254,7 +255,7 @@ class md5_hash
     }
     clog << endl;
 #endif
-    
+
     return h;
   }
 
@@ -284,7 +285,7 @@ void test_insert_some_words()
   BOOST_MESSAGE(bf.get_hash_name() << " (map_size = " << bf.get_map_size()
                 << ") with 3 entries is "
                 << bf.saturation() << "% full.");
-  
+
   // Successful lookups
   BOOST_CHECK(bf.lookup("foo") == true);
   BOOST_CHECK(bf.lookup("bar") == true);
@@ -317,7 +318,7 @@ string random_word()
 {
   char word[len + 1] = {0};
 
-  for (unsigned int i = 0; i < len; i++) {
+  for(unsigned int i = 0; i < len; i++) {
     word[i] = (rand() % 26) + 'a';
   }
   return string(word);
@@ -327,7 +328,7 @@ template<class hash_fn>
 void test_random_words()
 {
   const unsigned int n_tests = 10000;
-  
+
   unsigned int pos = 0, neg = 0, fpos = 0;
   bloom_filter<hash_fn> bf;
   bf.load_dictionary(dict);
@@ -339,7 +340,6 @@ void test_random_words()
     real_dict.insert(line);
   }
 
-  
   for(unsigned int i = 0; i < n_tests; i++) {
     string rword = random_word<5>();
     if(bf.lookup(rword)) {
@@ -354,9 +354,10 @@ void test_random_words()
     }
   }
 
-  BOOST_MESSAGE("With hash function " << typeid(hash_fn).name() << ",\n"
-                << "for " << n_tests << " test cases, there were "
-                << neg << " words not in the dictionary,\n"
+  BOOST_MESSAGE("With hash function " << bf.get_hash_name() << ", map size "
+                << bf.get_map_size() << ":\n  "
+                << n_tests << " test cases, there were "
+                << neg << " words not in the dictionary,\n  "
                 << pos << " words verified as being in the dictionary and "
                 << fpos << " false positives.");
 }
@@ -364,7 +365,7 @@ void test_random_words()
 test_suite *init_unit_test_suite(int argc, char *argv[])
 {
   srand(time(NULL));
-  
+
   test_suite *t = BOOST_TEST_SUITE("Code Kata 5: Bloom Filters");
   t->add(BOOST_TEST_CASE(&test_insert_some_words<split_into_chars>));
   t->add(BOOST_TEST_CASE(&test_insert_some_words<char_pairs>));
