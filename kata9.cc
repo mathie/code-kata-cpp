@@ -1,8 +1,15 @@
 // Code Kata 9: Back to the Checkout
 //
-// $Id: kata9.cc,v 1.4 2004/02/09 13:29:35 mathie Exp $
+// $Id: kata9.cc,v 1.5 2004/02/10 06:24:08 mathie Exp $
 //
 // $Log: kata9.cc,v $
+// Revision 1.5  2004/02/10 06:24:08  mathie
+// * Remove item from item_info struct - it was never referenced and it's
+//   available as the key of the map pair anyway.
+// * Replace those complicated for loops with generic algorithms (and, in
+//   the price-retrieval case, a complicated function object to sum the
+//   price...).
+//
 // Revision 1.4  2004/02/09 13:29:35  mathie
 // * Obey special offer pricing rules.  This is done by checkout::scan()
 //   merely keeping track of what's been scanned.  A total is only
@@ -35,6 +42,7 @@
 #include <map>
 #include <string>
 #include <utility>
+#include <numeric>
 
 using boost::unit_test_framework::test_suite;
 using namespace std;
@@ -51,17 +59,16 @@ class checkout_rules
  private:
   struct item_info
   {
-    item i;
     price p;
     rule r;
 
     item_info()
-      : i(0), p(0), r(0, 0)
+      : p(0), r(1, p)
     {
     }
 
-    item_info(const item& i, const price& p, const rule& r)
-      : i(i), p(p), r(r)
+    item_info(const price& p, const rule& r)
+      : p(p), r(r)
     {
     }
   };
@@ -71,7 +78,7 @@ class checkout_rules
  public:
   void add(const item& i, const price& p, const rule& r)
   {
-    rules[i] = item_info(i, p, r);
+    rules[i] = item_info(p, r);
   }
 
   void add(const item& i, const price& p)
@@ -96,6 +103,23 @@ class checkout
   item_list items;
   checkout_rules rules;
 
+  // Binary function to aid accumulate() in figuring out the total price.
+  class figure_out_price
+    : public binary_function<price, pair<const item, quantity>, price>
+  {
+    const checkout_rules& rules;
+  public:
+    figure_out_price(const checkout_rules& rules) : rules(rules)
+    {
+    }
+    figure_out_price::result_type
+    operator()(const figure_out_price::first_argument_type& result,
+               const figure_out_price::second_argument_type& rule)
+    {
+      return result + rules.get_price(rule.first, rule.second);
+    }
+  };
+
  public:
   checkout(const checkout_rules& r)
     : rules(r)
@@ -104,15 +128,11 @@ class checkout
 
   unsigned int total() const
   {
-    price t = 0;
-    for(item_list::const_iterator it = items.begin();
-        it != items.end(); it++) {
-      t += rules.get_price(it->first, it->second);
-    }
-    return t;
+    return accumulate(items.begin(), items.end(), 0U,
+                      figure_out_price(rules));
   }
 
-  void scan(const item& i)
+  void scan(const item i)
   {
     items[i]++;
   }
@@ -132,9 +152,8 @@ template<typename C>
 unsigned int price_cart(const C& cart, const checkout_rules& rules)
 {
   checkout co(rules);
-  for(typename C::const_iterator it = cart.begin(); it != cart.end(); it++) {
-    co.scan(*it);
-  }
+  for_each(cart.begin(), cart.end(),
+           bind1st(mem_fun(&checkout::scan), &co));
   return co.total();
 }
 
