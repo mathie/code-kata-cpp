@@ -1,6 +1,9 @@
-# $Id: Makefile,v 1.3 2004/02/02 09:08:15 mathie Exp $
+# $Id: Makefile,v 1.4 2004/02/02 12:13:22 mathie Exp $
 #
 # $Log: Makefile,v $
+# Revision 1.4  2004/02/02 12:13:22  mathie
+# * Add kata4.
+#
 # Revision 1.3  2004/02/02 09:08:15  mathie
 # * Add options to control build process (switch on warnings, optional
 #   debugging symbols/optimisation).
@@ -11,7 +14,7 @@
 # * Add trailing CR, RCS keywords.
 #
 
-TARGETS = kata2
+TARGETS = kata2 kata4
 DEBUG = yes
 
 BOOST_HOME = $(HOME)/src/not-mine/tarballs/boost-1.30.2
