@@ -1,8 +1,15 @@
 // Code Kata 6: Anagrams
 //
-// $Id: kata6.cc,v 1.4 2004/02/07 16:55:12 mathie Exp $
+// $Id: kata6.cc,v 1.5 2004/02/09 07:29:42 mathie Exp $
 //
 // $Log: kata6.cc,v $
+// Revision 1.5  2004/02/09 07:29:42  mathie
+// * More whitespace cleanup...
+// * Implement anagrams::size() correctly (I can't believe that took me two
+//   days to get right!).
+// * Test cases to verify that the parsed dictionaries produce the expected
+//   number of results.
+//
 // Revision 1.4  2004/02/07 16:55:12  mathie
 // * Tidy up whitespace.
 // * Implement an iterator for anagrams in terms of the map it's composed
@@ -32,6 +39,7 @@
 // http://www.pragprog.com/pragdave/Practices/Kata/KataSix.rdoc
 
 #include <boost/test/unit_test.hpp>
+#include <boost/compose.hpp>
 #include <algorithm>
 #include <functional>
 #include <map>
@@ -41,9 +49,11 @@
 #include <fstream>
 
 using boost::unit_test_framework::test_suite;
+using boost::compose_f_gx;
+
 using namespace std;
 
-class word_rep 
+class word_rep
 {
   unsigned int char_count[26];
   unsigned int *char_count_begin, *char_count_end;
@@ -75,7 +85,7 @@ class word_rep
     copy(c.char_count_begin, c.char_count_end, char_count_begin);
   }
 
-  const string& get_word() const
+  const string& operator()() const
   {
     return word;
   }
@@ -97,9 +107,7 @@ class word_rep
   }
 };
 
-
-
-class anagrams 
+class anagrams
 {
  public:
   typedef const string& const_reference;
@@ -123,7 +131,7 @@ class anagrams
       : al(a), it(i)
     {
     }
-    bool operator==(const iterator& x) const 
+    bool operator==(const iterator& x) const
     {
       return it == x.it;
     }
@@ -131,7 +139,7 @@ class anagrams
     {
       return !(*this == x);
     }
-    const word_list& operator*() const 
+    const word_list& operator*() const
     {
       return it->second;
     }
@@ -140,14 +148,14 @@ class anagrams
       return &it->second;
     }
 
-    iterator& operator++() 
+    iterator& operator++()
     {
       do {
         ++it;
       } while(it->second.size() < 2 && *this != al.end());
       return *this;
     }
-    iterator operator++(int) 
+    iterator operator++(int)
     {
       iterator tmp = *this;
       ++*this;
@@ -160,7 +168,7 @@ class anagrams
       } while(it->second.size() < 2 && *this != al.begin());
       return *this;
     }
-    iterator operator--(int) 
+    iterator operator--(int)
     {
       iterator tmp = *this;
       --*this;
@@ -168,7 +176,7 @@ class anagrams
     }
   };
 
-  void insert(const string& w) 
+  void insert(const string& w)
   {
     al[word_rep(w)].insert(w);
   }
@@ -187,15 +195,17 @@ class anagrams
     return iterator(*this, al.end());
   }
 
-  int size() const
+  size_t size() const
   {
-    return al.size();
+    return count_if(begin(), end(),
+                    compose_f_gx(bind2nd(greater<size_t>(), 1),
+                                 mem_fun_ref(&word_list::size)));
   }
 
-  friend ostream& operator<<(ostream& s, const anagrams& a) 
+  friend ostream& operator<<(ostream& s, const anagrams& a)
   {
     // FIXME: Why doesn't the copy() version work?
-    // copy(a.begin(), a.end(), ostream_iterator<word_list>(s, "\n"));    
+    // copy(a.begin(), a.end(), ostream_iterator<word_list>(s, "\n"));
     for(iterator it = a.begin(); it != a.end(); it++) {
       s << *it << "..." << endl;
     }
@@ -222,23 +232,23 @@ void test_word_rep()
     refresh("refresh"), sinks("sinks"), skins("skins"), knits("knits"),
     stink("stink"), rots("rots"), sort("sort");
 
-  BOOST_CHECK_EQUAL(kinship.get_word(), "kinship");
-  BOOST_CHECK_EQUAL(pinkish.get_word(), "pinkish");
-  BOOST_CHECK_EQUAL(enlist.get_word(), "enlist");
-  BOOST_CHECK_EQUAL(inlets.get_word(), "inlets");
-  BOOST_CHECK_EQUAL(listen.get_word(), "listen");
-  BOOST_CHECK_EQUAL(silent.get_word(), "silent");
-  BOOST_CHECK_EQUAL(boaster.get_word(), "boaster");
-  BOOST_CHECK_EQUAL(boaters.get_word(), "boaters");
-  BOOST_CHECK_EQUAL(borates.get_word(), "borates");
-  BOOST_CHECK_EQUAL(fresher.get_word(), "fresher");
-  BOOST_CHECK_EQUAL(refresh.get_word(), "refresh");
-  BOOST_CHECK_EQUAL(sinks.get_word(), "sinks");
-  BOOST_CHECK_EQUAL(skins.get_word(), "skins");
-  BOOST_CHECK_EQUAL(knits.get_word(), "knits");
-  BOOST_CHECK_EQUAL(stink.get_word(), "stink");
-  BOOST_CHECK_EQUAL(rots.get_word(), "rots");
-  BOOST_CHECK_EQUAL(sort.get_word(), "sort");
+  BOOST_CHECK_EQUAL(kinship(), "kinship");
+  BOOST_CHECK_EQUAL(pinkish(), "pinkish");
+  BOOST_CHECK_EQUAL(enlist(), "enlist");
+  BOOST_CHECK_EQUAL(inlets(), "inlets");
+  BOOST_CHECK_EQUAL(listen(), "listen");
+  BOOST_CHECK_EQUAL(silent(), "silent");
+  BOOST_CHECK_EQUAL(boaster(), "boaster");
+  BOOST_CHECK_EQUAL(boaters(), "boaters");
+  BOOST_CHECK_EQUAL(borates(), "borates");
+  BOOST_CHECK_EQUAL(fresher(), "fresher");
+  BOOST_CHECK_EQUAL(refresh(), "refresh");
+  BOOST_CHECK_EQUAL(sinks(), "sinks");
+  BOOST_CHECK_EQUAL(skins(), "skins");
+  BOOST_CHECK_EQUAL(knits(), "knits");
+  BOOST_CHECK_EQUAL(stink(), "stink");
+  BOOST_CHECK_EQUAL(rots(), "rots");
+  BOOST_CHECK_EQUAL(sort(), "sort");
 
   // All permutations of equal words from the above list.
   BOOST_CHECK(kinship == pinkish);
@@ -309,10 +319,11 @@ void test_anagrams()
   }
 }
 
-void load_dictionary(pair<string, string> args)
+void load_dictionary(pair<string, pair<string, size_t> > args)
 {
   const string& infile = args.first;
-  const string& outfile = args.second;
+  const string& outfile = args.second.first;
+  const size_t expected_results = args.second.second;
 
   BOOST_MESSAGE("Retrieving from " << infile << ", writing to " << outfile);
 
@@ -322,18 +333,22 @@ void load_dictionary(pair<string, string> args)
   copy(istream_iterator<string>(in), istream_iterator<string>(),
        back_inserter(a));
 
+  BOOST_CHECK_EQUAL(a.size(), expected_results);
+
   ofstream out(outfile.c_str());
   out << a;
 }
 
 class test_dictionaries : public test_suite
 {
-  set<pair<string, string> > dictionaries;
+  set<pair<string, pair<string, size_t> > > dictionaries;
  public:
   test_dictionaries()
   {
-    dictionaries.insert(make_pair("wordlist.txt", "wordlist.out"));
-    dictionaries.insert(make_pair("/usr/share/dict/words", "maindict.out"));
+    dictionaries.insert(make_pair("wordlist.txt",
+                                  make_pair("wordlist.out", 2530)));
+    dictionaries.insert(make_pair("/usr/share/dict/words",
+                                  make_pair("maindict.out", 15048)));
     add(BOOST_PARAM_TEST_CASE(load_dictionary, dictionaries.begin(),
                               dictionaries.end()));
   }
